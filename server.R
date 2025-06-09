@@ -7,7 +7,6 @@ library(tidyverse)
 # Begin server function
 function(input, output, session) {
   
-
   # ---- Dynamic Date UI: Constrain to selected campaign ----
   output$dynamic_date_ui <- renderUI({
     req(input$campaign)
@@ -760,7 +759,7 @@ output$top_bottom_locations <- renderTable({
       df %>%
         mutate(LOCATION = str_replace_all(LOCATION, c(
           "Monmouth Junct" = "Monmouth Junction",
-          "Tices Lane" = "Tices Ln",
+          "Tices Ln" = "Tices Lane",
           "Roselle Pk" = "Roselle Park"
         )))
     }
