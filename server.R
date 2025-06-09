@@ -6,6 +6,14 @@ library(tidyverse)
 
 # Begin server function
 function(input, output, session) {
+  fix_location_names <- function(df) {
+    df %>%
+      mutate(LOCATION = str_replace_all(LOCATION, c(
+        "Monmouth Junct" = "Monmouth Junction",
+        "Tices Ln"      = "Tices Lane",
+        "Roselle Pk"    = "Roselle Park"
+      )))
+  }
   
   # ---- Dynamic Date UI: Constrain to selected campaign ----
   output$dynamic_date_ui <- renderUI({
@@ -50,10 +58,10 @@ function(input, output, session) {
   filtered_data <- reactive({
     req(input$campaign, input$date_range, input$selected_locations)
     
-    POTW_All_Campaigns %>%
+    fix_location_names(POTW_All_Campaigns) %>%
       filter(Campaign == input$campaign) %>%
-      filter(`CREATED DATE` >= input$date_range[1] & `CREATED DATE` <= input$date_range[2]) %>%
-      filter(LOCATION %in% input$selected_locations)
+    filter(`CREATED DATE` >= input$date_range[1] & `CREATED DATE` <= input$date_range[2]) %>%
+    filter(LOCATION %in% input$selected_locations)
   })
   
   
@@ -566,9 +574,7 @@ output$top_bottom_locations <- renderTable({
       total_days <- as.numeric(difftime(end_date, start_date, units = "days")) + 1
       num_weeks <- ceiling(total_days / 7)
       
-      df <- POTW_All_Campaigns %>%
-        filter(`CREATED DATE` >= start_date & `CREATED DATE` <= end_date) %>%
-        filter(LOCATION %in% input$selected_locations) %>%
+      df <- filtered_data() %>%
         mutate(Week = as.numeric(difftime(`CREATED DATE`, start_date, units = "days")) %/% 7 + 1) %>%
         group_by(Week) %>%
         summarise(`Memberships Sold` = sum(SALES, na.rm = TRUE), .groups = "drop") %>%
@@ -754,15 +760,6 @@ output$top_bottom_locations <- renderTable({
     
   # ---- 📊 Revenue & Membership Insights Tab ----
 
-    # 📌 Fix known misspellings in LOCATION field
-    fix_location_names <- function(df) {
-      df %>%
-        mutate(LOCATION = str_replace_all(LOCATION, c(
-          "Monmouth Junct" = "Monmouth Junction",
-          "Tices Ln" = "Tices Lane",
-          "Roselle Pk" = "Roselle Park"
-        )))
-    }
     
     format_currency <- function(x) {
       paste0("$", formatC(round(x, 2), format = "f", big.mark = ",", digits = 2))
@@ -776,8 +773,7 @@ output$top_bottom_locations <- renderTable({
     revenue_ltv_calculations <- reactive({
       selected_locations <- input$selected_locations
       
-      sales_data <- fix_location_names(filtered_data()) %>%
-        filter(LOCATION %in% selected_locations) %>%
+      sales_data <- filtered_data() %>%
         group_by(LOCATION) %>%
         summarise(total_memberships_sold = sum(SALES, na.rm = TRUE), .groups = "drop")
       
@@ -808,9 +804,9 @@ output$top_bottom_locations <- renderTable({
     
     # 📊 Location-Level Revenue Table
     location_revenue_table <- reactive({
-      sales_data <- fix_location_names(filtered_data()) %>%
+      sales_data <- filtered_data() %>%
         group_by(LOCATION) %>%
-        summarise(Memberships_Sold = sum(SALES, na.rm = TRUE), .groups = "drop")
+      summarise(Memberships_Sold = sum(SALES, na.rm = TRUE), .groups = "drop")
       
       revenue_data <- LTV_by_Site %>%
         rename_with(~ gsub("^X\\.", "", .x)) %>%
@@ -911,11 +907,11 @@ output$top_bottom_locations <- renderTable({
     })
     
     output$conversion_heatmap <- renderPlot({
-      conv_data <- fix_location_names(filtered_data()) %>%
+      conv_data <- filtered_data() %>%
         group_by(LOCATION) %>%
-        summarise(
-          Memberships_Sold = sum(SALES),
-          Eligible_Washes = sum(ELIGIBLE_WASHES),
+      summarise(
+                Memberships_Sold = sum(SALES),
+                Eligible_Washes = sum(ELIGIBLE_WASHES),
           Conversion_Rate = ifelse(sum(ELIGIBLE_WASHES) == 0, 0, sum(SALES) / sum(ELIGIBLE_WASHES))
         ) %>%
         filter(LOCATION != "TOTAL") %>%
