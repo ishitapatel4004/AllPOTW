@@ -29,7 +29,6 @@ function(input, output, session) {
                    min = range[1], max = range[2])
   })
   
-  
   full_service_locations <- c("Piscataway", "Westfield", "Summit", "Woodbridge")
   express_locations <- setdiff(available_locations, full_service_locations)
   
@@ -54,13 +53,9 @@ function(input, output, session) {
     
     POTW_All_Campaigns %>%
       filter(Campaign == input$campaign) %>%
-      filter(`CREATED_DATE` >= input$date_range[1] & `CREATED_DATE` <= input$date_range[2]) %>%
+      filter(`CREATED DATE` >= input$date_range[1] & `CREATED DATE` <= input$date_range[2]) %>%
       filter(LOCATION %in% input$selected_locations)
   })
-  
-  
-  
-  
   
   
 
@@ -171,16 +166,16 @@ function(input, output, session) {
   # ----- Time Series --------
   output$time_series <- renderPlot({
     data <- filtered_data() %>%
-      group_by(CREATED_DATE) %>%
+      group_by(`CREATED DATE`) %>%
       summarise(`Memberships Sold` = sum(SALES, na.rm = TRUE)) %>%
-      arrange(CREATED_DATE)
+      arrange(`CREATED DATE`)
     
     # 🛑 Exit early if no data
     if (nrow(data) == 0) {
       return(NULL)
     }
     
-    ggplot(data, aes(x = CREATED_DATE, y = `Memberships Sold`)) +
+    ggplot(data, aes(x = `CREATED DATE`, y = `Memberships Sold`)) +
       geom_line(color = "blue", size = 1) +
       geom_point(color = "red", size = 3) +
       geom_text(aes(label = `Memberships Sold`), vjust = -0.7, size = 4, fontface = "bold") +
@@ -202,11 +197,11 @@ function(input, output, session) {
       filter(Campaign == input$campaign)
     
     # Auto-detect campaign range
-    start_date <- min(campaign_data$CREATED_DATE, na.rm = TRUE)
-    end_date <- max(campaign_data$CREATED_DATE, na.rm = TRUE)
+    start_date <- min(campaign_data$`CREATED DATE`, na.rm = TRUE)
+    end_date <- max(campaign_data$`CREATED DATE`, na.rm = TRUE)
     
     # Auto-detect first two days
-    sorted_dates <- sort(unique(campaign_data$CREATED_DATE))
+    sorted_dates <- sort(unique(campaign_data$`CREATED DATE`))
     day1 <- sorted_dates[1]
     day2 <- sorted_dates[2]
     
@@ -215,8 +210,8 @@ function(input, output, session) {
     days_total <- as.numeric(difftime(end_date, start_date, units = "days")) + 1
     avg_daily_sales <- total_sales / days_total
     
-    day1_sales <- campaign_data %>% filter(CREATED_DATE == day1) %>% summarise(SALES = sum(SALES)) %>% pull(SALES)
-    day2_sales <- campaign_data %>% filter(CREATED_DATE == day2) %>% summarise(SALES = sum(SALES)) %>% pull(SALES)
+    day1_sales <- campaign_data %>% filter(`CREATED DATE` == day1) %>% summarise(SALES = sum(SALES)) %>% pull(SALES)
+    day2_sales <- campaign_data %>% filter(`CREATED DATE` == day2) %>% summarise(SALES = sum(SALES)) %>% pull(SALES)
     
     first_two_days_sales <- day1_sales + day2_sales
     day1_over_avg <- day1_sales - avg_daily_sales
@@ -287,13 +282,14 @@ function(input, output, session) {
 
   POTW_All_Campaigns <- POTW_All_Campaigns %>%
     mutate(
-      Year = year(CREATED_DATE),
+      Year = year(`CREATED DATE`),
       Service_Type = ifelse(LOCATION %in% full_service_locations, "Full Service", "Express")
     )
   
+  
   campaign_lengths <- POTW_All_Campaigns %>%
     group_by(Year) %>%
-    summarise(Campaign_Days = as.numeric(difftime(max(CREATED_DATE), min(CREATED_DATE), units = "days")) + 1, .groups = "drop")
+    summarise(Campaign_Days = as.numeric(difftime(max(`CREATED DATE`), min(`CREATED DATE`), units = "days")) + 1, .groups = "drop")
   
   yoy_summary <- POTW_All_Campaigns %>%
     group_by(Year) %>%
@@ -320,7 +316,7 @@ function(input, output, session) {
   
   yoy_growth <- reactive({
     df <- POTW_All_Campaigns %>%
-      mutate(Year = year(CREATED_DATE)) %>%
+      mutate(Year = year(`CREATED DATE`)) %>%
       group_by(Year) %>%
       summarise(Sold = sum(SALES, na.rm = TRUE), .groups = "drop")
     
@@ -341,7 +337,7 @@ function(input, output, session) {
       group_by(Year) %>%
       summarise(
         TotalSales = sum(SALES, na.rm = TRUE),
-        Days = as.numeric(difftime(max(CREATED_DATE), min(CREATED_DATE), units = "days")) + 1,
+        Days = as.numeric(difftime(max(`CREATED DATE`), min(`CREATED DATE`), units = "days")) + 1,
         .groups = "drop"
       ) %>%
       summarise(
@@ -374,9 +370,9 @@ function(input, output, session) {
   output$yoy_line_chart <- renderPlot({
     POTW_All_Campaigns %>%
       mutate(
-        Year = year(CREATED_DATE),
-        MonthDay = format(CREATED_DATE, "%b %d"),
-        MonthDayDate = as.Date(format(CREATED_DATE, "%m-%d"), format = "%m-%d")
+        Year = year(`CREATED DATE`),
+        MonthDay = format(`CREATED DATE`, "%b %d"),
+        MonthDayDate = as.Date(format(`CREATED DATE`, "%m-%d"), format = "%m-%d")
       ) %>%
       group_by(Year, MonthDay, MonthDayDate) %>%
       summarise(Memberships_Sold = sum(SALES, na.rm = TRUE), .groups = "drop") %>%
@@ -572,9 +568,9 @@ output$top_bottom_locations <- renderTable({
       num_weeks <- ceiling(total_days / 7)
       
       df <- POTW_All_Campaigns %>%
-        filter(CREATED_DATE >= start_date & CREATED_DATE <= end_date) %>%
+        filter(`CREATED DATE` >= start_date & `CREATED DATE` <= end_date) %>%
         filter(LOCATION %in% input$selected_locations) %>%
-        mutate(Week = as.numeric(difftime(CREATED_DATE, start_date, units = "days")) %/% 7 + 1) %>%
+        mutate(Week = as.numeric(difftime(`CREATED DATE`, start_date, units = "days")) %/% 7 + 1) %>%
         group_by(Week) %>%
         summarise(`Memberships Sold` = sum(SALES, na.rm = TRUE), .groups = "drop") %>%
         complete(Week = 1:num_weeks, fill = list(`Memberships Sold` = 0)) %>%
@@ -644,10 +640,10 @@ output$top_bottom_locations <- renderTable({
     
     output$sales_dropoff_line_chart <- renderPlot({
       df <- filtered_data() %>%
-        group_by(CREATED_DATE) %>%
+        group_by(`CREATED DATE`) %>%
         summarise(`Memberships Sold` = sum(SALES, na.rm = TRUE))
       
-      ggplot(df, aes(x = CREATED_DATE, y = `Memberships Sold`)) +
+      ggplot(df, aes(x = `CREATED DATE`, y = `Memberships Sold`)) +
         geom_line(color = "blue", size = 1) +
         geom_point(color = "red", size = 2) +
         labs(title = "📈 Membership Sales Trend Over Time", x = "Date", y = "Memberships Sold") +
